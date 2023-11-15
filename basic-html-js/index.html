@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My WebRTC Experiment</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Your HTML content goes here -->
+  <h1>My WebRTC Experiment</h1>
+
+  <div id="call-control">
+    <button id="join-btn">Join stream</button>
+  </div>
+
+  <div id="stream-wrapper">
+    <div id="video-streams">
+      <!-- all video streams go here -->
+    </div>
+
+    <div id="stream-controls">
+      <button id="leave-btn">Leave stream</button>
+      <button id="cam-btn">Camera</button>
+      <button id="mic-btn">Mic</button>
+    </div>
+  </div>
+  
+</body>
+<script src="libs/Agora_Web_SDK_FULL/AgoraRTC_N-4.19.3.js"></script>
+<script src="config.js"></script>
+<script src="main.js"></script>
+</html>
