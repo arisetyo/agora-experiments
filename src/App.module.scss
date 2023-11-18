@@ -1,0 +1,67 @@
+.App {
+  width: 1200px;
+  margin: 0 auto;
+
+  color: rgba(255, 255, 255, 0.87);
+
+  h1 {
+    margin: 0;
+  }
+
+  p {
+    margin: 8px 0;
+    color: rgba(255, 255, 255, 0.57);
+  }
+
+  .status {
+    margin: 20px 0;
+
+    p {
+      color: moccasin;
+      margin: 0;
+      font-size: 12px;
+      font-weight: bold;
+    }
+  }
+
+  .actions {
+    display: flex;
+    gap: 16px;
+
+    button {
+      display: inline-block;
+      padding: 16px 24px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background-color 0.3s ease;
+      border: none;
+      
+      &.actionBtn { 
+        background-color: darkcyan;
+        cursor: pointer;
+    
+        &:hover {
+          background-color: #3e429b;
+        }
+    
+        &.inactive {
+          background-color: #ccc;
+          cursor: not-allowed;
+        }
+      } 
+    }
+  }
+
+  .videos {
+    margin-top: 20px;
+    height: 70vh;
+    width: 100%;
+
+    background-color: rgba(0, 0, 0, 0.1);
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}

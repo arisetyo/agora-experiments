@@ -1,0 +1,8 @@
+.VideoPlayer {
+  max-height: 100%;
+  border: 1px solid silver;
+  background-color: #203A49;
+
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
