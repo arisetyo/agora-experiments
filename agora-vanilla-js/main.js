@@ -7,37 +7,61 @@
  * 
  */
 
-// log level: 0=NONE, 1=ERROR, 2=WARNING, 3=INFO, 4=DEBUG
-// create Agora client
-const agoraRTC_Client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8", logLevel: 0 });
-
-// Initialize RTM client
-const agoraRTM_Client = AgoraRTM.createInstance(APP_ID)
 
 // list of local tracks (audio/video)
-let localTracks = [];
-
+let localTracks = []
 // list of remote users and their audio/video tracks
-let remoteUsers = {};
-
+let remoteUsers = {}
+// RTC client
+let agoraRTC_Client
+// RTM client
+let agoraRTM_Client
 // RTM channel
 let rtmChannel
 
+
 /**
- * Generate an alphanumeric RTM uid
- * 
- * @param {number} length - The length of the uid to generate
- * @returns {string} - The generated alphanumeric uid
+ * Initialize RTM
  */
-const generateRTMUid = () => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let uid = '';
-  for (let i = 0; i < 6; i++) {
-    uid += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return `USR-${uid}`;
+const initRtm = async () => {
+  // Initialize Agora RTM client
+  agoraRTM_Client = await AgoraRTM.createInstance(APP_ID)
+  // login to Agora RTM
+  await agoraRTM_Client.login({'uid':generateRTMUid(), 'token': null})
+
+  // Immediately join a channel because it's the same as the one we use for RTC
+  // and we need to add event handlers here
+  rtmChannel = await agoraRTM_Client.createChannel(CHANNEL_NAME)
+  await rtmChannel.join()
+
+  // EVENT HANDLERS
+  // using RTM to detect user join
+  rtmChannel.on('MemberJoined', handleMemberJoined)
 }
 
+/**
+ * Initialize RTC
+ */
+const initRtc = async () => {
+  // create Agora RTC client
+  agoraRTC_Client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8", logLevel: 0 }) // log level: 0=NONE, 1=ERROR, 2=WARNING, 3=INFO, 4=DEBUG
+  
+  // EVENT HANDLERS
+  // handle newly joining users
+  // agoraRTC_Client.on('user-published', handleUserJoined)
+  // handle leaving users
+  // agoraRTC_Client.on('user-left', handleUserLeft)
+}
+
+/**
+ * Initialize the app
+ * 
+ * Make sure to initialize both RTC and RTM, but the RTC first because we create the RTM client instance here
+ */
+const init = async () => {
+  await initRtc()
+  await initRtm()
+}
 
 /**
  * 
@@ -48,19 +72,7 @@ const generateRTMUid = () => {
  * 
  */
 let joinAndDisplayLocalStream = async () => {
-  // EVENT HANDLERS
-  // handle newly joining users
-  agoraRTC_Client.on('user-published', handleUserJoined)
-  // handle leaving users
-  agoraRTC_Client.on('user-left', handleUserLeft)
-  // using RTM to detect user join
-  rtmChannel.on('MemberJoined', async member => {
-    console.log('MemberJoined', member)
-    // await handleUserJoined(member, 'video')
-  })
-  // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-  // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-  // join the channel and retrieve uid
+  // join the channel for RTC
   let UID = await agoraRTC_Client.join(APP_ID, CHANNEL_NAME, null, null);
 
   // create local audio track and video track from mic and webcam
@@ -85,10 +97,8 @@ let joinAndDisplayLocalStream = async () => {
  * start joining an Agora stream and display our local audio vide on the window
  */
 let joinStream = async () => {
-  await agoraRTM_Client.login({'uid':generateRTMUid(), 'token': null})
-
-  rtmChannel = await agoraRTM_Client.createChannel(CHANNEL_NAME)
-  await rtmChannel.join()
+  await initRtc()
+  await initRtm()
 
   // start joining the stream via Agora RTC
   await joinAndDisplayLocalStream();
@@ -106,7 +116,7 @@ let joinStream = async () => {
  * 
  * @param {*} user 
  * @param {*} mediaType 
- */
+ * /
 let handleUserJoined = async (user, mediaType) => {
   remoteUsers[user.uid] = user;
   await agoraRTC_Client.subscribe(user, mediaType);
@@ -130,6 +140,12 @@ let handleUserJoined = async (user, mediaType) => {
     // play this user's audio track
     if (mediaType === 'audio') user.audioTrack.play();
   }
+} */
+const handleMemberJoined = async (tmp) => {
+  console.log('- - - - - - - - ')
+  console.log('MemberJoined')
+  console.log(tmp)
+  console.log('- - - - - - - - ')
 }
 
 /**
@@ -202,6 +218,9 @@ let toggleCamera = async e => {
     e.target.style.backgroundColor = '#EE4B2B';
   }
 }
+
+// initialize the RTC/RTM clients
+init()
 
 /**
  * 
