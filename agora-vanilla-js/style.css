@@ -38,22 +38,49 @@ body {
   max-height: 100%;
   border: 2px solid black;
   background-color: #203A49;
+  position: relative;
+}
+
+.action-ui {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0.5em;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+}
+
+.user-id {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 0.5em;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: .8em;
+  font-weight: bold;
+  border-radius: 4px;
 }
 
 .video-player{
+  position: absolute;
+  left: 0;
+  top: 0;
   height: 100%;
   width: 100%;
 }
 
-button{
-  border:none;
+button {
+  border: none;
   background-color: cadetblue;
-  color:#fff;
-  padding:10px 20px;
-  font-size:16px;
-  margin:2px;
+  border-radius: 8px;
   cursor: pointer;
-  border-radius: 4px;
+}
+
+.action-ui > button {
+  border-radius: 15px;
+  width: 30px;
+  height: 30px;
 }
 
 #stream-controls{

@@ -18,7 +18,8 @@ let agoraRTC_Client
 let agoraRTM_Client
 // RTM channel
 let rtmChannel
-
+// the local user's ID
+let myId = generateRTMUid()
 
 /**
  * Initialize RTM
@@ -27,7 +28,7 @@ const initRtm = async () => {
   // Initialize Agora RTM client
   agoraRTM_Client = await AgoraRTM.createInstance(APP_ID)
   // login to Agora RTM
-  await agoraRTM_Client.login({'uid':generateRTMUid(), 'token': null})
+  await agoraRTM_Client.login({'uid': myId, 'token': null})
 
   // Immediately join a channel because it's the same as the one we use for RTC
   // and we need to add event handlers here
@@ -81,6 +82,12 @@ let joinAndDisplayLocalStream = async () => {
   let player = `
     <div class="video-container" id="user-container-${UID}">
       <div class="video-player" id="user-${UID}"></div>
+      <div class="action-ui">
+        <button><img id="mic-btn" width="20px" height="20px" src="img/mic.png"/></button>
+        <button><img id="cam-btn" width="20px" height="20px" src="img/cam.png"/></button>
+        <button><img id="exit-btn" width="20px" height="20px" src="img/leave.svg"/></button>
+      </div>
+      <span class="user-id">ID: ${myId}</span>
     </div>
   `;
   // append player to DOM
@@ -104,7 +111,6 @@ let joinStream = async () => {
   await joinAndDisplayLocalStream();
 
   document.getElementById("join-btn").style.display = "none";
-  document.getElementById("stream-controls").style.display = "flex";
 }
 
 /**
@@ -142,10 +148,10 @@ let handleUserJoined = async (user, mediaType) => {
   }
 } */
 const handleMemberJoined = async (tmp) => {
-  console.log('- - - - - - - - ')
-  console.log('MemberJoined')
+  console.log('- - - - - - - - \n\n')
+  console.log('>>>>MemberJoined<<<')
   console.log(tmp)
-  console.log('- - - - - - - - ')
+  console.log('\n\n- - - - - - - - ')
 }
 
 /**
@@ -177,7 +183,6 @@ let leaveAndRemoveLocalStream = async () => {
   await agoraRTC_Client.leave();
 
   document.getElementById('join-btn').style.display = 'block';
-  document.getElementById('stream-controls').style.display = 'none';
   document.getElementById('video-streams').innerHTML = '';
 }
 
@@ -191,12 +196,10 @@ let leaveAndRemoveLocalStream = async () => {
 let toggleMic = async e => {
   if (localTracks[0].muted) {
     await localTracks[0].setMuted(false);
-    e.target.innerText = 'Mic on';
-    e.target.style.backgroundColor = 'cadetblue';
+    e.target.style.opacity = '1';
   } else {
     await localTracks[0].setMuted(true);
-    e.target.innerText = 'Mic off';
-    e.target.style.backgroundColor = '#EE4B2B';
+    e.target.style.opacity = '0.1';
   }
 }
 
@@ -210,24 +213,13 @@ let toggleMic = async e => {
 let toggleCamera = async e => {
   if(localTracks[1].muted) {
     await localTracks[1].setMuted(false);
-    e.target.innerText = 'Camera on';
-    e.target.style.backgroundColor = 'cadetblue';
+    e.target.style.opacity = '1';
   } else {
     await localTracks[1].setMuted(true);
-    e.target.innerText = 'Camera off';
-    e.target.style.backgroundColor = '#EE4B2B';
+    e.target.style.opacity = '0.1';
   }
 }
 
 // initialize the RTC/RTM clients
 init()
 
-/**
- * 
- * event listeners for interaction buttons
- * 
- */
-document.getElementById('join-btn').addEventListener('click', joinStream);
-document.getElementById('leave-btn').addEventListener('click', leaveAndRemoveLocalStream);
-document.getElementById('mic-btn').addEventListener('click', toggleMic);
-document.getElementById('camera-btn').addEventListener('click', toggleCamera);
