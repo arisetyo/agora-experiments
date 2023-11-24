@@ -83,6 +83,10 @@ button {
   height: 30px;
 }
 
+.action-ui > button > img#mic-btn {
+  opacity: 0.1;
+}
+
 #stream-controls{
   display: none;
   justify-content: center;

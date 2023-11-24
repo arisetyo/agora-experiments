@@ -11,13 +11,13 @@ document.getElementById('join-btn').addEventListener('click', joinStream);
 document.body.addEventListener( 'click',  event => {
   switch( event?.target?.id ) {
     case 'exit-btn':
-      leaveAndRemoveLocalStream()
+      leaveLocalStream()
       break
     case 'mic-btn':
-      toggleMic(event)
+      toggleOwnMic(event)
       break
     case 'cam-btn':
-      toggleCamera(event)
+      toggleOwnCamera(event)
       break
   }
 })
