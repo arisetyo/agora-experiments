@@ -29,7 +29,21 @@ let agoraRTM_Channel
 const myRtmId = generateRTMUid()
 // my rtc ID
 let myRtcId
-// remote channel members. We use this to remove the player when the user leaves.
+
+/**
+ * 
+ * Remote channel members. We use this to remove the player when the user leaves.
+ * This is because the user's RTC ID is different from the user's RTM ID.
+ * 
+ * Object structure:
+ * 
+  {
+    remoteMemberRtcId: <user's rtc id>,
+    remoteMemberId: <user's rtm id>
+  }
+ *
+ *
+ * */
 let remoteMembers = []
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -71,8 +85,11 @@ const INIT_RTM = async () => {
  * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  */
 const INIT_RTC = async () => {
+  AgoraRTC.setParameter('AUDIO_VOLUME_INDICATION_INTERVAL', 200);
+
   // create Agora RTC client
   agoraRTC_Client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8", logLevel: 0 }) // log level: 0=NONE, 1=ERROR, 2=WARNING, 3=INFO, 4=DEBUG
+  agoraRTC_Client.enableAudioVolumeIndicator()
 
   /**
    * EVENT HANDLERS
@@ -81,6 +98,8 @@ const INIT_RTC = async () => {
   agoraRTC_Client.on("user-published", handleUserPublished)
   // handle leaving users via RTC
   agoraRTC_Client.on("user-left", handleUserLeft)
+  // handle volume change
+  agoraRTC_Client.on("volume-indicator", volumeIndicatorHandler)
 }
 
 
@@ -345,6 +364,36 @@ const leaveRoom = async () => {
 
   document.getElementById('join-btn').style.display = 'block';
   document.getElementById('video-streams').innerHTML = '';
+}
+
+/**
+ * Handle volume change event.
+ * @param {*} volumes 
+ */
+const volumeIndicatorHandler = volumes => {
+  volumes.forEach( volume => {
+    if (remoteMembers.length > 0) {
+      // get the remoteMemberId using volume.uid
+      let remoteMember = remoteMembers.find(remoteMember => remoteMember.remoteMemberRtcId === volume.uid)
+
+      if (!remoteMember) return
+
+      // get the video container of that member id
+      try {
+        let player = document.getElementById(`user-container-${remoteMember.remoteMemberId}`);
+
+        if (!player) return
+
+        if (volume.level >= 50){
+          player.style.borderColor = '#00ff00'
+        } else {
+          player.style.borderColor = "unset"
+        }
+      } catch(error) {
+        console.error(error)
+      }
+    }
+  })
 }
 
 // * * * * * * * * * * * * * * * * * * * * 
