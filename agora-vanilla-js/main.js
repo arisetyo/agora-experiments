@@ -1,6 +1,8 @@
 /**
  * 
- * main web app javascript file
+ * A video conference app using Agora Web SDK and Agora RTM SDK
+ * 
+ * This is the main web app JS file
  * 
  * @author Arie M. Prasetyo
  * @reference https://www.youtube.com/watch?v=HX6AM_1-jNM by Dennis Ivy
@@ -226,6 +228,10 @@ const handleUserPublished = async (user, mediaType) => {
             player = `
               <div class="video-container" id="user-container-${remoteMember.remoteMemberId}">
                 <div class="video-player" id="user-${remoteMember.remoteMemberId}"></div>
+                <div class="action-ui-guest">
+                  <button><img id="mic-btn-guest" data-member="${remoteMember.remoteMemberId}" width="20px" height="20px" src="img/mic.png"/></button>
+                  <button><img id="cam-btn-guest" data-member="${remoteMember.remoteMemberId}" width="20px" height="20px" src="img/cam.png"/></button>
+                </div>
                 <span class="user-id">ID: ${remoteMember.remoteMemberId}</span>
               </div>
             `
@@ -255,35 +261,13 @@ const handleChannelMessage = async (message, memberId) => {
   remoteMembers.push({remoteMemberRtcId: myRtcId, remoteMemberId: memberId})
 
   if (type === "REMOTE_JOINED_BROADCAST") {
-    // get user and mediaType from Tracks.remoteTracks
-    let remoteTrack = Tracks.remoteTracks[myRtcId]
-    
-    if (remoteTrack && remoteTrack !== null) {
-      let {user, mediaType} = remoteTrack
-
-      if (mediaType == "audio"){
-        user.audioTrack.play()
-      }
-
-      // play this user's video track using the selected video container
-      if (mediaType === 'video') {
-        // check whether the player already exists
-        let player = document.getElementById(`user-container-${memberId}`);
-        if (player != null) player.remove()
-
-        player = `
-          <div class="video-container" id="user-container-${memberId}">
-            <div class="video-player" id="user-${memberId}"></div>
-            <span class="user-id">ID: ${memberId}</span>
-          </div>
-        `
-        // append player to DOM
-        await document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
-
-        user.videoTrack.play(`user-${memberId}`)
-      }
-    }
-
+    msgRemoteJoinedBroadcast(myRtcId, memberId)
+  } else if (type === "HOST_REQUEST_MUTE") {
+    await Tracks.localTracks[0].setMuted(true)
+    document.getElementById('mic-btn').style.opacity = '0.1';
+  } else if (type === "HOST_REQUEST_NOCAM") {
+    await Tracks.localTracks[1].setMuted(true)
+    document.getElementById('cam-btn').style.opacity = '0.1';
   }
 }
 
@@ -333,6 +317,22 @@ let toggleOwnCamera = async e => {
     await Tracks.localTracks[1].setMuted(true);
     e.target.style.opacity = '0.1';
   }
+}
+
+/**
+ * Send message to the member to mute their mic
+ * @param {*} memberId 
+ * */
+const toggleGuestMic = async memberId => {
+  agoraRTM_Channel.sendMessage({text: JSON.stringify({myRtcId: null, type: "HOST_REQUEST_MUTE"})}, memberId)
+}
+
+/**
+ * Send message to the member to mute their camera
+ * @param {*} memberId
+ * */
+const toggleGuestCam = async memberId => {
+  agoraRTM_Channel.sendMessage({text: JSON.stringify({myRtcId: null, type: "HOST_REQUEST_NOCAM"})}, memberId)
 }
 
 /**
@@ -394,6 +394,48 @@ const volumeIndicatorHandler = volumes => {
       }
     }
   })
+}
+
+/**
+ * 
+ * Handle message for when a remote joined broadcast
+ * 
+ * @param {*} rtcId 
+ * @param {*} memberId 
+ */
+const msgRemoteJoinedBroadcast = async (rtcId, memberId) => {
+  // get user and mediaType from Tracks.remoteTracks
+  let remoteTrack = Tracks.remoteTracks[rtcId]
+    
+  if (remoteTrack && remoteTrack !== null) {
+    let {user, mediaType} = remoteTrack
+
+    if (mediaType == "audio"){
+      user.audioTrack.play()
+    }
+
+    // play this user's video track using the selected video container
+    if (mediaType === 'video') {
+      // check whether the player already exists
+      let player = document.getElementById(`user-container-${memberId}`);
+      if (player != null) player.remove()
+
+      player = `
+        <div class="video-container" id="user-container-${memberId}">
+          <div class="video-player" id="user-${memberId}"></div>
+          <div class="action-ui-guest">
+            <button><img id="mic-btn-guest" data-member="${memberId}" width="20px" height="20px" src="img/mic.png"/></button>
+            <button><img id="cam-btn-guest" data-member="${memberId}" width="20px" height="20px" src="img/cam.png"/></button>
+          </div>
+          <span class="user-id">ID: ${memberId}</span>
+        </div>
+      `
+      // append player to DOM
+      await document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
+
+      user.videoTrack.play(`user-${memberId}`)
+    }
+  }
 }
 
 // * * * * * * * * * * * * * * * * * * * * 

@@ -19,5 +19,11 @@ document.body.addEventListener( 'click',  event => {
     case 'cam-btn':
       toggleOwnCamera(event)
       break
+    case 'mic-btn-guest':
+      toggleGuestMic(event.target.getAttribute("data-member"))
+      break
+    case 'cam-btn-guest':
+      toggleGuestCam(event.target.getAttribute("data-member"))
+      break
   }
 })

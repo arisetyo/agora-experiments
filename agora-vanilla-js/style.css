@@ -62,6 +62,22 @@ body {
   border-radius: 4px;
 }
 
+.action-ui-guest {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 0.5em;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.action-ui-guest > button {
+  border-radius: 15px;
+  width: 30px;
+  height: 30px;
+  background-color: rebeccapurple;
+}
+
 .user-id {
   position: absolute;
   top: 8px;
