@@ -16,6 +16,18 @@ body {
 
 /* Add your custom styles below */
 
+#timer {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  border-radius: 10px;
+  font-size: 1.2em;
+  color: white;
+}
+
 #join-btn{
   position: fixed;
   top:50%;

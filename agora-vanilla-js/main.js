@@ -24,12 +24,13 @@ let agoraRTC_Client
 let agoraRTM_Client
 // RTM channel
 let agoraRTM_Channel
-// channel members
-let channelMembers = []
-// channel uids
-let channelUids = []
-// the local user's ID
-let myId = generateRTMUid()
+
+// my id
+const myRtmId = generateRTMUid()
+// my rtc ID
+let myRtcId
+// remote channel members. We use this to remove the player when the user leaves.
+let remoteMembers = []
 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
@@ -43,25 +44,24 @@ const INIT_RTM = async () => {
   // Initialize Agora RTM client
   agoraRTM_Client = await AgoraRTM.createInstance(APP_ID)
   // login to Agora RTM
-  await agoraRTM_Client.login({'uid': myId, 'token': null})
+  await agoraRTM_Client.login({'uid': myRtmId, 'token': null})
 
   // Immediately join a channel because it's the same as the one we use for RTC
   // and we need to add event handlers here
   agoraRTM_Channel = await agoraRTM_Client.createChannel(CHANNEL_NAME)
   await agoraRTM_Channel.join()
 
-  // get channel members
-  getChannelMembers()
-
   /**
    * EVENT HANDLERS
    */
+  // using RTM to detect user message
+  agoraRTM_Channel.on('ChannelMessage', handleChannelMessage)
+  // log out of channel when user closes the window
+  window.addEventListener('beforeunload', logoutChannel)
   // using RTM to detect user join
-  agoraRTM_Channel.on('MemberJoined', handleMemberJoined)
+  // -
   // using RTM to detect user leave
-  agoraRTM_Channel.on('MemberLeft', handleMemberLeft)
-  // leave channel when user closes the window
-  window.addEventListener('beforeunload', leaveLocalStream)
+  // -
 }
 
 
@@ -77,44 +77,10 @@ const INIT_RTC = async () => {
   /**
    * EVENT HANDLERS
    */
+  // handle newly joining users via RTC that contains their audio and video tracks
   agoraRTC_Client.on("user-published", handleUserPublished)
+  // handle leaving users via RTC
   agoraRTC_Client.on("user-left", handleUserLeft)
-}
-
-
-/**
- * 
- * */
-const joinStream = async () => {
-  // join the channel for RTC
-  const rtcUid = await agoraRTC_Client.join(APP_ID, CHANNEL_NAME, null, null);
-
-  let player = `
-    <div class="video-container" id="user-container-${rtcUid}">
-      <div class="video-player" id="user-${rtcUid}"></div>
-      <div class="action-ui">
-        <button><img id="mic-btn" width="20px" height="20px" src="img/mic.png"/></button>
-        <button><img id="cam-btn" width="20px" height="20px" src="img/cam.png"/></button>
-        <button><img id="exit-btn" width="20px" height="20px" src="img/leave.svg"/></button>
-      </div>
-      <span class="user-id">ID: ${rtcUid}</span>
-    </div>
-  `
-  // append player to DOM
-  await document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
-
-  // create local audio track and video track from mic and webcam
-  Tracks.localTracks = await AgoraRTC.createMicrophoneAndCameraTracks()
-  // start muted
-  await Tracks.localTracks[0].setMuted(true)
-  // play local tracks
-  await Tracks.localTracks[1].play(`user-${rtcUid}`)
-
-  // publish local tracks to channel
-  await agoraRTC_Client.publish([ Tracks.localTracks[0], Tracks.localTracks[1] ])
-
-  // hide join button
-  document.getElementById("join-btn").style.display = "none"
 }
 
 
@@ -125,8 +91,73 @@ const joinStream = async () => {
  * start joining an Agora stream and display our local audio vide on the window
  * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  */
-let init = async () => {
+const joinRoom = async () => {
+  // join the channel for RTC
+  myRtcId = await agoraRTC_Client.join(APP_ID, CHANNEL_NAME, null, null);
+
+  // create player for local stream
+  let player = `
+    <div class="video-container" id="user-container-${myRtmId}">
+      <div class="video-player" id="user-${myRtmId}"></div>
+      <div class="action-ui">
+        <button><img id="mic-btn" width="20px" height="20px" src="img/mic.png"/></button>
+        <button><img id="cam-btn" width="20px" height="20px" src="img/cam.png"/></button>
+        <button><img id="exit-btn" width="20px" height="20px" src="img/leave.svg"/></button>
+      </div>
+      <span class="user-id">ID: ${myRtmId}</span>
+    </div>
+  `
+  // append player to DOM
+  await document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
+
+  /**
+   * 
+   * create local audio track and video track from mic and webcam
+   * and then publish it to the channel
+   * 
+   */
+  // create local audio and video tracks
+  Tracks.localTracks = await AgoraRTC.createMicrophoneAndCameraTracks()
+  // start muted
+  await Tracks.localTracks[0].setMuted(true)
+  // play local tracks
+  await Tracks.localTracks[1].play(`user-${myRtmId}`)
+  // PUBLISH local tracks to channel
+  await agoraRTC_Client.publish([ Tracks.localTracks[0], Tracks.localTracks[1] ])
+
+  // hide join button
+  document.getElementById("join-btn").style.display = "none"
+
+  // send myRtcId and myId to other members in the channel
+  // Wait for 6 seconds before sending the message to make sure its tracks are PUBLISHED
+  let countdown = 6
+
+  let timer = document.getElementById("timer")
+  timer.style.display = "block"
+  
+  const myInterval = setInterval(() => {
+    if (countdown === 0) {
+      agoraRTM_Channel.sendMessage({text: JSON.stringify({myRtcId, type: "REMOTE_JOINED_BROADCAST"})})
+      timer.style.display = "none"
+      clearInterval(myInterval)
+      countdown = 6
+      return
+    }
+    
+    // show countdown in timer layer
+    timer.innerHTML = countdown
+    countdown -= 1
+  }, 1000)
+}
+
+/**
+ * main function to start the app
+ * */
+const init = async () => {
+  // init RTM and join a channel
   await INIT_RTM()
+
+  // init RTC
   await INIT_RTC()
 }
 
@@ -142,33 +173,98 @@ let init = async () => {
  */
 const handleUserPublished = async (user, mediaType) => {
   // add to remote tracks
-  Tracks.remoteTracks[user.uid] = user
+  Tracks.remoteTracks[user.uid] = {user, mediaType}
 
   // subscribe to this user's stream
   await agoraRTC_Client.subscribe(user, mediaType)
 
-  // play this user's audio track
-  if (mediaType == "audio"){
-    Tracks.remoteTracks[user.uid] = [user.audioTrack]
-    user.audioTrack.play()
+  // We are not playing the video here because we want to wait for the RTM message
+  // so we know the combination of the user's RTM ID and RTC ID.
+  // But that means new users will not see the video of the existing users.
+  // This we need to check whether the user is already in the remoteMembers list.
+  const channelMembers = await agoraRTM_Channel.getMembers()
+  if (remoteMembers.length > 0) {
+    // loop through remoteMembers
+    remoteMembers.forEach(remoteMember => {
+      // if the remoteMember is in the members list, then play the video
+      if (channelMembers.includes(remoteMember.remoteMemberId)) {
+        // get user and mediaType from Tracks.remoteTracks
+        let remoteTrack = Tracks.remoteTracks[remoteMember.remoteMemberRtcId]
+        
+        if (remoteTrack && remoteTrack !== null) {
+          let {user, mediaType} = remoteTrack
+
+          if (mediaType == "audio"){
+            user.audioTrack.play()
+          }
+
+          // play this user's video track using the selected video container
+          if (mediaType === 'video') {
+            // check whether the player already exists
+            let player = document.getElementById(`user-container-${remoteMember.remoteMemberId}`);
+            if (player != null) player.remove()
+
+            player = `
+              <div class="video-container" id="user-container-${remoteMember.remoteMemberId}">
+                <div class="video-player" id="user-${remoteMember.remoteMemberId}"></div>
+                <span class="user-id">ID: ${remoteMember.remoteMemberId}</span>
+              </div>
+            `
+            // append player to DOM
+            document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
+
+            user.videoTrack.play(`user-${remoteMember.remoteMemberId}`)
+          }
+        }
+      }
+    })
   }
 
-  // play this user's video track using the selected video container
-  if (mediaType === 'video') {
-    // check whether the player already exists
-    let player = document.getElementById(`user-container-${user.uid}`);
-    if (player != null) player.remove()
+}
 
-    player = `
-      <div class="video-container" id="user-container-${user.uid}">
-        <div class="video-player" id="user-${user.uid}"></div>
-        <span class="user-id">ID: ${user.uid}</span>
-      </div>
-    `
-    // append player to DOM
-    await document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
+/**
+ * handle channel message from RTM
+ * 
+ * if the message is a REMOTE_JOINED_BROADCAST, then play the user's video track
+ * other message could be handled herem eg. MUTE_REMOTE_USER_MIC
+ */
+const handleChannelMessage = async (message, memberId) => {
+  // parse message
+  const {myRtcId, type} = JSON.parse(message.text)
 
-    user.videoTrack.play(`user-${user.uid}`)
+  // add to remote members
+  remoteMembers.push({remoteMemberRtcId: myRtcId, remoteMemberId: memberId})
+
+  if (type === "REMOTE_JOINED_BROADCAST") {
+    // get user and mediaType from Tracks.remoteTracks
+    let remoteTrack = Tracks.remoteTracks[myRtcId]
+    
+    if (remoteTrack && remoteTrack !== null) {
+      let {user, mediaType} = remoteTrack
+
+      if (mediaType == "audio"){
+        user.audioTrack.play()
+      }
+
+      // play this user's video track using the selected video container
+      if (mediaType === 'video') {
+        // check whether the player already exists
+        let player = document.getElementById(`user-container-${memberId}`);
+        if (player != null) player.remove()
+
+        player = `
+          <div class="video-container" id="user-container-${memberId}">
+            <div class="video-player" id="user-${memberId}"></div>
+            <span class="user-id">ID: ${memberId}</span>
+          </div>
+        `
+        // append player to DOM
+        await document.getElementById("video-streams").insertAdjacentHTML('beforeend', player)
+
+        user.videoTrack.play(`user-${memberId}`)
+      }
+    }
+
   }
 }
 
@@ -181,76 +277,9 @@ const handleUserPublished = async (user, mediaType) => {
  * */
 const handleUserLeft = async (user) => {
   delete Tracks.remoteTracks[user.uid]
-  document.getElementById(`user-container-${user.uid}`).remove()
-}
 
-
-/**
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * handle remote user who joined RTM channel
- * 
- * @param {*} user 
- * @param {*} mediaType 
- *  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- */
-const handleMemberJoined = async memberId => {
-  // TMP
-  console.log('member joined', memberId)
-}
-
-/**
- * handle remote user who left
- * 
- * basically let the active window that there's another user that left from RTM channel
- * @param {*} user 
- */
-const handleMemberLeft = async memberId => {
-  // TMP
-  console.log('member left', memberId)
-}
-
-/**
- * Leave the RTM channel
- */
-const leaveRtmChannel = async () => {
-  await agoraRTM_Channel.leave()
-  await agoraRTM_Client.logout()
-}
-
-
-/**
- * 
- * read all the members in the channel
- * 
- * this is called when the user first joins the channel
- */
-const getChannelMembers = async () => {
-  // get members from RTM channel
-  channelMembers = await agoraRTM_Channel.getMembers()
-}
-
-/**
- * leave channel and remove local stream
- * 
- * this what actually happens when you click the leave button
- * the user's local mic and camera will be stopped and the user leaves the stream
- */
-const leaveLocalStream = async () => {
-  // stop local tracks
-  Tracks.localTracks[0].stop()
-  Tracks.localTracks[1].stop()
-  Tracks.localTracks[0].close()
-  Tracks.localTracks[1].close()
-
-  // user actually leave the RTC stream
-  await agoraRTC_Client.unpublish()
-  await agoraRTC_Client.leave()
-
-  // user actually leave the RTM channel
-  leaveRtmChannel()
-
-  document.getElementById('join-btn').style.display = 'block';
-  document.getElementById('video-streams').innerHTML = '';
+  remoteMember = remoteMembers.find(remoteMember => remoteMember.remoteMemberRtcId === user.uid)
+  document.getElementById(`user-container-${remoteMember.remoteMemberId}`).remove()
 }
 
 /**
@@ -287,5 +316,38 @@ let toggleOwnCamera = async e => {
   }
 }
 
-// start the app
+/**
+ * leave RTM channel
+ */
+const logoutChannel = async () => {
+  await agoraRTM_Client.logout()
+}
+
+/**
+ * leave channel and remove local stream
+ * 
+ * this what actually happens when you click the leave button
+ * the user's local mic and camera will be stopped and the user leaves the stream
+ */
+const leaveRoom = async () => {
+  // stop local tracks
+  Tracks.localTracks[0].stop()
+  Tracks.localTracks[1].stop()
+  Tracks.localTracks[0].close()
+  Tracks.localTracks[1].close()
+
+  // user actually leave the RTC stream
+  await agoraRTC_Client.unpublish()
+  await agoraRTC_Client.leave()
+
+  // user actually leave the RTM channel
+  await agoraRTM_Channel.leave()
+
+  document.getElementById('join-btn').style.display = 'block';
+  document.getElementById('video-streams').innerHTML = '';
+}
+
+// * * * * * * * * * * * * * * * * * * * * 
+// initialize to start the app
+// * * * * * * * * * * * * * * * * * * * *
 init()

@@ -5,13 +5,13 @@
  * Refer to main.js for the functions
  * 
  */
-document.getElementById('join-btn').addEventListener('click', joinStream);
+document.getElementById('join-btn').addEventListener('click', joinRoom);
 
 // events for dynamic buttons
 document.body.addEventListener( 'click',  event => {
   switch( event?.target?.id ) {
     case 'exit-btn':
-      leaveLocalStream()
+      leaveRoom()
       break
     case 'mic-btn':
       toggleOwnMic(event)
